@@ -129,6 +129,10 @@ add_executable(euclidean_cluster  src/euclidean_cluster.cpp)
 target_link_libraries(euclidean_cluster  ${catkin_LIBRARIES})
 
 
+add_executable(cluster_extraction  src/cluster_extraction.cpp)
+target_link_libraries(cluster_extraction  ${catkin_LIBRARIES})
+
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure

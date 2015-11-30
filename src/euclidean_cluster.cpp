@@ -30,13 +30,14 @@ public:
 	ros::NodeHandle n;
 	ros::Publisher clusters_pub;	
 	ros::Subscriber  sub_filter_cloud;
-	int min_cluster_size = 100;
-	int max_cluster_size = 25000;
-	int cluster_tolerance = 0.02;
+	int min_cluster_size = 10;
+	int max_cluster_size = 20000;
+	int cluster_tolerance = 1;
 
 
 	EuclideanCluster(){
-		sub_filter_cloud = n.subscribe("/pcl/final_filtered_cloud", 1, &EuclideanCluster::cluster_Cb, this);
+		// sub_filter_cloud = n.subscribe("/pcl/final_filtered_cloud", 1, &EuclideanCluster::cluster_Cb, this);
+		sub_filter_cloud = n.subscribe("/pcl/clouds_no_walls", 1, &EuclideanCluster::cluster_Cb, this);
 		clusters_pub = n.advertise<ras_msgs::pcl_object_mult>("/pcl/clusters", 1);
 		// object_pub
 
@@ -45,23 +46,30 @@ public:
 
 
 	void cluster_Cb(const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
-		pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+		pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
 		pcl::fromROSMsg(*cloud_msg, *cloud);
 
-		pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
-		tree->setInputCloud(cloud);
-		std::vector<pcl::PointIndices> cluster_indices;
-  		pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+		// pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+		// tree->setInputCloud(cloud);
 
-  		// tune the cluster_tolerance parameter ...
-  		ec.setClusterTolerance(cluster_tolerance);
-  		ec.setMinClusterSize(min_cluster_size);
-  		ec.setMaxClusterSize(max_cluster_size);
-  		ec.setSearchMethod(tree);
 
-  		ec.setInputCloud(cloud);
-  		ec.extract(cluster_indices);
+        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+        tree->setInputCloud (cloud);
+
+        ROS_INFO("hiiii  %d", cloud->points.size());
+
+        // Use Euclidean clustering
+        std::vector<pcl::PointIndices> cluster_indices;
+        pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+        ec.setClusterTolerance (cluster_tolerance);
+        ec.setMinClusterSize (min_cluster_size);
+        ec.setMaxClusterSize (max_cluster_size);
+        ec.setSearchMethod (tree);
+        ec.setInputCloud (cloud);
+        ec.extract (cluster_indices);
+
+  		ROS_INFO("no of clusters is: %d", cluster_indices.size());
   		ras_msgs::pcl_object_mult cluster_mult;
   		int count = 0;
 
@@ -84,11 +92,15 @@ public:
 
 			cluster.x = centroid[0];
 			cluster.y = centroid[1];
-			cluster.z = centroid[2];
+			cluster.z = -centroid[2];
+
+			ROS_INFO("cloud centroid is : %d", cluster.x);
 
 			cluster.isdebri = 0;
 
-			if(cluster.y >= 0.07){
+			ROS_INFO("cluster centroid coordinates are : %d, %d, %d", centroid[0], centroid[1], centroid[2]);
+
+			if(cluster.y >= 0.04){
 				cluster.isdebri = 1;
 			}
 
@@ -98,10 +110,7 @@ public:
 
   		cluster_mult.num_objects = count;
   		clusters_pub.publish(cluster_mult);
-  		
-
 	}
-
 
 };
 

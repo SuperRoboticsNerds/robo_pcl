@@ -75,7 +75,7 @@ public:
 		pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
 		sor.setInputCloud(cloudPtr);
 
-		float leaf = 0.01;
+		float leaf = 0.005;
 		sor.setLeafSize(leaf, leaf, leaf);
 		sor.filter(cloud_filtered);
 
@@ -88,12 +88,13 @@ public:
 		global_counter++;
 
 
-		if((theta == 0.0 && y_offset == 0.0) || global_counter < 200 ){
+		if((theta == 0.0 && y_offset == 0.0) || global_counter < 800 ){
 
 		// part for planar segmentation starts here  ..
 			pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>), cloud_p(new pcl::PointCloud<pcl::PointXYZ>), cloud_seg(new pcl::PointCloud<pcl::PointXYZ>); 
 			pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_p_rotated(new pcl::PointCloud<pcl::PointXYZ>);
 			pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_p_transformed(new pcl::PointCloud<pcl::PointXYZ>);
+			pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_transformed(new pcl::PointCloud<pcl::PointXYZ>);
 
 			sensor_msgs::PointCloud2  plane_sensor, plane_transf_sensor;
 
@@ -107,11 +108,11 @@ public:
 			seg.setOptimizeCoefficients(true);
 			seg.setModelType (pcl::SACMODEL_PLANE);
 	  		seg.setMethodType (pcl::SAC_RANSAC);
-			seg.setDistanceThreshold (0.02);
+	  		seg.setMaxIterations (100);
+			seg.setDistanceThreshold (0.01);
 
 			seg.setInputCloud(cloud1);
 			seg.segment (*inliers, *coefficients);
-
 
 			Eigen::Matrix<float, 1, 3> surface_normal;
 			Eigen::Matrix<float, 1, 3> floor_normal;
@@ -125,21 +126,17 @@ public:
 			floor_normal[2] = 0.0;
 
 			theta = acos(surface_normal.dot(floor_normal));
-
 			//extract the inliers - copied from tutorials...
 
 			pcl::ExtractIndices<pcl::PointXYZ> extract;
 			extract.setInputCloud(cloud1);
 	    	extract.setIndices (inliers);
-	    	extract.setNegative(false);
+	    	extract.setNegative(true);
 	    	extract.filter(*cloud_p);
 
-	    	ROS_INFO("print cloud info %d, %d ", cloud_p->width, cloud_p->height);
-
-
+	    	ROS_INFO("print cloud info %d",  cloud_p->height);
 	    	pcl::toROSMsg(*cloud_p, plane_sensor);
 	    	pub_plane_simple.publish(plane_sensor);
-
 
 	    	// anti rotate the point cloud by first finding the angle of rotation 
 
@@ -148,12 +145,12 @@ public:
 	        transform_1.rotate (Eigen::AngleAxisf (theta, Eigen::Vector3f::UnitX()));
 
 	        pcl::transformPointCloud(*cloud_p, *cloud_p_rotated, transform_1);
-
 			double y_sum = 0;
 			// int num_points = 
 			for (int i = 0; i < 20; i++){
 				y_sum = cloud_p_rotated->points[i].y;
 			}
+
 
 			y_offset = y_sum / 20;
 
@@ -162,10 +159,15 @@ public:
 	        transform_2.rotate (Eigen::AngleAxisf (theta, Eigen::Vector3f::UnitX()));
 
 			pcl::transformPointCloud(*cloud_p, *cloud_p_transformed, transform_2);
+	        pcl::transformPointCloud(*cloud1, *cloud_transformed, transform_2);
+
 	        //now remove the y offset because of the camera rotation 
 
 	        pcl::toROSMsg(*cloud_p_transformed, plane_transf_sensor);
+	        // pcl::toROSMsg(*cloud_transformed, plane_transf_sensor);
+	        // pcl::toROSMsg(*cloud1, plane_transf_sensor);
 	        pub_plane_transf.publish(plane_transf_sensor);
+
 
 		}
 
@@ -187,12 +189,12 @@ public:
 
 int main(int argc, char ** argv){
 
-	ros::init(argc, argv, "preprocess");
+	ros::init(argc, argv, "downsample");
 	// ros::NodeHandle node("~");
 	PCLPreprocess  pclp_Node;
 
 
-
+// 
 	// ros::Subscriber sub = node.subscribe("/camera/depth/points", 1, point_cb);
 	// pub = node.advertise<sensor_msgs::PointCloud2>("/pcl/downsample", 1);
 

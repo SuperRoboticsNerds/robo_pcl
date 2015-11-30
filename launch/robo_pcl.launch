@@ -1,0 +1,15 @@
+<launch>
+
+
+<include file="$(find openni2_launch)/launch/openni2.launch" />
+
+  <node pkg="robo_pcl" type="downsample" name="downsample" >
+  </node>
+
+  <node pkg="robo_pcl" type="passthrough" name="passthrough" >
+  </node>
+
+  <node pkg="robo_pcl" type="euclidean_cluster" name="clusterpcl" >
+  </node>
+
+</launch>
